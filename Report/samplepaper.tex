@@ -1,0 +1,170 @@
+% This is samplepaper.tex, a sample chapter demonstrating the
+% LLNCS macro package for Springer Computer Science proceedings;
+% Version 2.21 of 2022/01/12
+%
+\documentclass[runningheads]{llncs}
+%
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{caption}
+\usepackage{amsmath}
+
+\definecolor{sol-base3}{HTML}{FDF6E3}   % 背景 (米色)
+\definecolor{sol-base00}{HTML}{657B83}  % 正文 (深灰蓝)
+\definecolor{sol-base1}{HTML}{93A1A1}   % 注释 / 行号 (浅灰)
+\definecolor{sol-violet}{HTML}{6C71C4}  % 关键词 (紫色)
+\definecolor{sol-yellow}{HTML}{B58900}  % 类型 (黄色)
+\definecolor{sol-blue}{HTML}{268BD2}    % 函数 (蓝色)
+\definecolor{sol-orange}{HTML}{CB4B16}  % 数字 (橙色)
+\definecolor{sol-green}{HTML}{859900}   % 字符串 (绿色)
+
+\lstdefinestyle{cpp-solarized}{
+    language=Python,
+    backgroundcolor=\color{sol-base3},
+    basicstyle=\ttfamily\footnotesize\color{sol-base00},
+    commentstyle=\color{sol-base1}\itshape,
+    stringstyle=\color{sol-green},
+    numbers=left,
+    numberstyle=\ttfamily\tiny\color{sol-base1},
+    numbersep=5pt,
+    frame=single,
+    framerule=0.5pt,
+    rulecolor=\color{sol-base1},
+    keywordstyle=[1]\color{sol-violet},
+    keywordstyle=[2]\color{sol-yellow},
+    keywordstyle=[3]\color{sol-blue},
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    alsoletter={_}
+}
+
+\lstset{style=cpp-solarized}
+
+\begin{document}
+%
+\title{Performance Analysis of Homomorphic Encryption in Neural Networks}
+%
+\author{Feng Hao, G2504051D \and Wei Xiao, G2405459F}
+%
+\authorrunning{F. Hao, W. Xiao}
+%
+\institute{}
+%
+\maketitle              % typeset the header of the contribution
+%
+\begin{abstract}
+The rapid adoption of AI-as-a-Service (AIaaS) introduces significant data privacy risks when transmitting sensitive user data to untrusted third-party cloud servers. Homomorphic Encryption (HE) offers a mathematically rigorous solution by allowing computations directly on encrypted data without decryption. In this application-based project, we evaluate the performance overhead and approximation errors of deploying HE in neural network inference. We adapt a standard image classification model into an HE-friendly shallow polynomial network and implement the CKKS encryption scheme using the TenSEAL library. Our evaluation on the MNIST dataset demonstrates that while HE successfully maintains 100\% classification accuracy with with a negligible approximation error of 0.03, it introduces severe performance bottlenecks, increasing the average inference latency from 0.50 milliseconds to 2.94 seconds per image. These results highlight the practical trade-offs between absolute data confidentiality and computational efficiency in modern privacy-preserving AI systems.
+
+\keywords{Homomorphic Encryption \and Privacy-Preserving AI \and Machine Learning \and TenSEAL \and CKKS.}
+\end{abstract}
+%
+%
+%
+\section{Introduction}
+
+\subsection{Motivation}
+The rapid proliferation of cloud computing and Artificial Intelligence-as-a-Service (AIaaS) has transformed how organizations deploy and consume machine learning models. In this paradigm, users transmit sensitive data---ranging from personal medical records to proprietary financial information---to third-party cloud servers for high-performance inference. However, this architecture introduces a critical privacy bottleneck: traditional encryption only protects data in transit and at rest. To be processed by an AI model, data must typically be decrypted, exposing the plaintext to potentially compromised cloud environments or `honest-but-curious' service providers. 
+
+To bridge the gap between utility and confidentiality, there is an urgent need for techniques that enable computation directly on encrypted data. \textbf{Homomorphic Encryption (HE)} has emerged as a mathematically rigorous solution to this challenge, enabling `blind computation' where a server can perform mathematical operations on ciphertexts without ever accessing the underlying plaintext. Despite its theoretical promise, the practical adoption of HE is severely hindered by the massive computational overhead and latency it introduces compared to plaintext operations. Understanding these trade-offs is essential for designing viable privacy-preserving AI systems.
+
+\subsection{Research Question}
+This project aims to answer a fundamental question: \textit{In a realistic AI-as-a-Service architecture, what is the quantitative computational overhead and accuracy trade-off of applying Homomorphic Encryption (HE) to achieve zero-knowledge cloud inference?}
+
+Specifically, we investigate whether a shallow neural network can maintain its predictive utility while operating under the performance constraints of the CKKS encryption scheme.
+
+\subsection{Contributions}
+To address the research question, we implemented a privacy-preserving pipeline and performed a comprehensive evaluation:
+\begin{itemize}
+    \item We designed an HE-friendly neural network by replacing non-linear activation functions (e.g., ReLU) with a second-order polynomial function ($x^2$), ensuring compatibility with homomorphic operations.
+    \item We implemented an end-to-end secure inference system using the TenSEAL library, deploying the CKKS scheme to protect user data throughout the inference lifecycle.
+    \item We performed a rigorous benchmarking on the MNIST dataset, quantifying the impact of HE on classification accuracy, floating-point approximation errors, and end-to-end latency.
+\end{itemize}
+
+\section{Background}
+Homomorphic Encryption (HE) is a cryptographic scheme that allows arbitrary mathematical operations to be performed on ciphertexts. When the resulting ciphertext is decrypted, it yields the exact result of the operations as if they had been performed on the plaintext. In this project, we utilize the \textbf{CKKS (Cheon-Kim-Kim-Song)} scheme, which is specifically designed to support approximate arithmetic over arrays of complex and real numbers, making it uniquely suitable for neural network floating-point operations.
+
+\section{Methodology and System Design}
+
+\subsection{System Architecture}
+Our implementation separates the workflow into a Client environment and an untrusted Cloud Server environment. The Client generates the cryptographic keys, encrypts the raw image into a ciphertext vector, and transmits it. The Cloud Server, possessing only the encrypted input and a plaintext pre-trained model, performs matrix multiplications and additions blindly. The encrypted result is sent back to the Client for local decryption.
+
+\subsection{HE-Friendly Model Adaptation}
+Standard neural networks rely heavily on non-linear activation functions such as ReLU ($max(0, x)$). However, condition-based operations are prohibitively expensive or unsupported in HE. To solve this, we constructed a shallow neural network consisting of two fully connected layers ($784 \to 64 \to 10$) and utilized a \textbf{polynomial activation function} ($f(x) = x^2$). Since HE inherently supports homomorphic additions and multiplications, this squared activation perfectly integrates into the encrypted computation pipeline.
+
+\subsection{Cryptographic Parameter Selection}
+In the CKKS scheme, each multiplication operation consumes the scaling factor, requiring rescaling which subsequently consumes the polynomial modulus depth. To support our network's required 3-layer multiplicative depth without triggering a \texttt{scale out of bounds} error, we configured the TenSEAL context with robust cryptographic parameters:
+\begin{itemize}
+    \item \textbf{Polynomial Modulus Degree:} Increased to $16384$ to provide sufficient capacity for the prime number chain.
+    \item \textbf{Coefficient Modulus Bit Sizes:} Set to \texttt{[60, 40, 40, 40, 60]}, providing three intermediate 40-bit primes for the necessary multiplication operations.
+\end{itemize}
+
+\section{Experimental Evaluation}
+
+\subsection{Experimental Setup}
+The experiments were conducted using the MNIST handwritten digit dataset. We first trained the plaintext polynomial model using PyTorch, achieving a baseline accuracy. The inference weights were then extracted and applied to the TenSEAL encrypted operations. We ran a batch evaluation of 100 test images to compare the plaintext baseline against the HE inference.
+
+\subsection{Accuracy and Approximation Error}
+One of the most critical findings is that HE inference maintained a \textbf{100\% match} with the plaintext model's predictions. Because the CKKS scheme is an approximate computation method, it introduces noise to the floating-point values. As shown in Table \ref{tab:error}, the HE computed logits differ from the plaintext logits by an average absolute error of $0.0312$. 
+
+However, since image classification relies on the \texttt{Argmax} function (the relative maximum value among the 10 classes) rather than absolute values, this minor error did not alter the final prediction outcome.
+
+\begin{table}[ht]
+\centering
+\caption{Detailed Logits Comparison and Absolute Error (Sample Label: 7)}
+\label{tab:error}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+\textbf{Class} & \textbf{Plaintext Logits} & \textbf{HE Ciphertext Logits} & \textbf{Absolute Error} \\ \midrule
+0              & 4.482852                  & 4.482895                      & 0.00004362              \\
+1              & 2.121562                  & 2.113931                      & 0.00763056              \\
+2              & 4.205320                  & 4.205511                      & 0.00019015              \\
+3              & 8.347394                  & 8.350828                      & 0.00343423              \\
+4              & -9.862619                 & -9.873343                     & 0.01072356              \\
+5              & 0.092624                  & 0.085282                      & 0.00734170              \\
+6              & -9.865355                 & -9.848685                     & 0.01667064              \\
+\textbf{7 (Pred)} & \textbf{24.877792}     & \textbf{24.858727}            & \textbf{0.01906498}     \\ 
+8              & -2.058335                 & -2.055990                     & 0.00234520              \\
+9              & 8.068798                  & 8.042974                      & 0.02582402              \\ \bottomrule
+\end{tabular}
+\end{table}
+
+As illustrated in Table \ref{tab:error}, the maximum absolute error across all classes remains within the range of $10^{-2}$. Specifically, for the target class `7', the ciphertext logit (24.858727) is slightly lower than the plaintext logit (24.877792), yet it significantly dominates all other potential classes. This experimental evidence confirms that the floating-point approximation noise inherent in the CKKS scheme does not compromise the classification integrity for shallow polynomial networks.
+
+\subsection{Performance Overhead Analysis}
+While accuracy was perfectly preserved, the computational cost was severe. In our batch evaluation, the plaintext inference required an average of \textbf{0.50 milliseconds} per image. In contrast, the HE inference required \textbf{2.94 seconds} per image—an increase in latency by a factor of nearly 6000. This massive overhead is attributed to the complex polynomial mathematics of ciphertext matrix multiplications and the necessity of continuous \textit{relinearization} and \textit{rescaling} after each layer.
+
+\section{Discussion and Future Work}
+Our results validate that Homomorphic Encryption can provide absolute data privacy for AIaaS without compromising accuracy, provided the network is shallow. However, the $O(10^3)$ performance penalty makes current pure HE solutions impractical for real-time, latency-sensitive applications. Furthermore, because approximation errors accumulate multiplicatively, applying CKKS to very deep networks (e.g., ResNet) would eventually cause the noise to eclipse the actual data, breaking the \texttt{Argmax} outcome. 
+
+Future work should explore hybrid approaches—such as combining Multi-Party Computation (MPC) with HE—or utilizing hardware acceleration (e.g., FPGAs) to drastically reduce the matrix multiplication latency in the encrypted domain.
+
+\section{Conclusion}
+This project successfully demonstrates the implementation and benchmarking of a privacy-preserving image classification system. We conclude that while Homomorphic Encryption elegantly solves the trust and privacy issues inherent in cloud AI, its extreme computational overhead currently restricts its viability to offline, asynchronous batch-processing tasks where security strictly outweighs speed.
+
+\bibliographystyle{splncs04}
+\begin{thebibliography}{8}
+
+\bibitem{ref_course}
+Fauzi, P., Zhang, J.: Privacy-Preserving Technologies \& Security in AI. Nanyang Technological University Course Material (2026).
+
+\bibitem{ref_ckks}
+Cheon, J.H., Kim, A., Kim, M., Song, Y.: Homomorphic Encryption for Arithmetic of Approximate Numbers. Advances in Cryptology - ASIACRYPT 2017, pp. 409--437. Springer (2017).
+
+\bibitem{ref_tenseal}
+Benaissa, A., et al.: TenSEAL: A library for doing homomorphic encryption operations on tensors. \url{https://github.com/OpenMined/TenSEAL}.
+
+\end{thebibliography}
+
+\end{document}
