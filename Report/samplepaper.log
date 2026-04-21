@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2024.7.24)  20 APR 2026 19:33
+This is XeTeX, Version 3.141592653-2.6-0.999996 (TeX Live 2024) (preloaded format=xelatex 2024.7.24)  22 APR 2026 00:27
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -395,8 +395,11 @@ LaTeX Font Info:    ... okay on input line 55.
 \c@lstlisting=\count332
 Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: End \AtBeginDocument code.
-
-Overfull \hbox (0.84802pt too wide) in paragraph at lines 78--79
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 66.
+ (d:/texlive/2024/texmf-dist/tex/latex/lm/t1lmtt.fd
+File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+)
+Overfull \hbox (0.84802pt too wide) in paragraph at lines 79--80
 \T1/lmr/m/n/10 The rapid pro-lif-er-a-tion of cloud com-put-ing and Ar-ti-fi-cial Intelligence-as-a-Service
  []
 
@@ -407,16 +410,8 @@ Overfull \hbox (0.84802pt too wide) in paragraph at lines 78--79
 ]
 
 [2]
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 107.
- (d:/texlive/2024/texmf-dist/tex/latex/lm/t1lmtt.fd
-File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
 
 [3]
-Missing character: There is no — ("2014) in font ec-lmr10!
-Missing character: There is no — ("2014) in font ec-lmr10!
-Missing character: There is no — ("2014) in font ec-lmr10!
-
 
 [4]
 
@@ -427,12 +422,12 @@ L3 programming layer <2024-05-27>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 6382 strings out of 474240
- 100754 string characters out of 5745918
+ 6407 strings out of 474240
+ 101030 string characters out of 5745918
  1927560 words of memory out of 5000000
- 29012 multiletter control sequences out of 15000+600000
- 590049 words of font info for 59 fonts, out of 8000000 for 9000
+ 29026 multiletter control sequences out of 15000+600000
+ 596938 words of font info for 73 fonts, out of 8000000 for 9000
  1348 hyphenation exceptions out of 8191
- 57i,8n,80p,1197b,330s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 57i,10n,80p,1197b,330s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on samplepaper.xdv (5 pages, 16572 bytes).
+Output written on samplepaper.xdv (5 pages, 16956 bytes).

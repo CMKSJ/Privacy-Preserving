@@ -54,7 +54,8 @@
 
 \begin{document}
 %
-\title{Performance Analysis of Homomorphic Encryption in Neural Networks}
+\title{Performance Analysis of Homomorphic Encryption in Neural Networks\thanks{The source code for this project is available at: \protect\url{https://github.com/CMKSJ/Privacy-Preserving}}}
+
 %
 \author{Feng Hao, G2504051D \and Wei Xiao, G2405459F}
 %
@@ -143,12 +144,12 @@ However, since image classification relies on the \texttt{Argmax} function (the 
 As illustrated in Table \ref{tab:error}, the maximum absolute error across all classes remains within the range of $10^{-2}$. Specifically, for the target class `7', the ciphertext logit (24.858727) is slightly lower than the plaintext logit (24.877792), yet it significantly dominates all other potential classes. This experimental evidence confirms that the floating-point approximation noise inherent in the CKKS scheme does not compromise the classification integrity for shallow polynomial networks.
 
 \subsection{Performance Overhead Analysis}
-While accuracy was perfectly preserved, the computational cost was severe. In our batch evaluation, the plaintext inference required an average of \textbf{0.50 milliseconds} per image. In contrast, the HE inference required \textbf{2.94 seconds} per image—an increase in latency by a factor of nearly 6000. This massive overhead is attributed to the complex polynomial mathematics of ciphertext matrix multiplications and the necessity of continuous \textit{relinearization} and \textit{rescaling} after each layer.
+While accuracy was perfectly preserved, the computational cost was severe. In our batch evaluation, the plaintext inference required an average of \textbf{0.50 milliseconds} per image. In contrast, the HE inference required \textbf{2.94 seconds} per image --- an increase in latency by a factor of nearly 6000. This massive overhead is attributed to the complex polynomial mathematics of ciphertext matrix multiplications and the necessity of continuous \textit{relinearization} and \textit{rescaling} after each layer.
 
 \section{Discussion and Future Work}
 Our results validate that Homomorphic Encryption can provide absolute data privacy for AIaaS without compromising accuracy, provided the network is shallow. However, the $O(10^3)$ performance penalty makes current pure HE solutions impractical for real-time, latency-sensitive applications. Furthermore, because approximation errors accumulate multiplicatively, applying CKKS to very deep networks (e.g., ResNet) would eventually cause the noise to eclipse the actual data, breaking the \texttt{Argmax} outcome. 
 
-Future work should explore hybrid approaches—such as combining Multi-Party Computation (MPC) with HE—or utilizing hardware acceleration (e.g., FPGAs) to drastically reduce the matrix multiplication latency in the encrypted domain.
+Future work should explore hybrid approaches --- such as combining Multi-Party Computation (MPC) with HE --- or utilizing hardware acceleration (e.g., FPGAs) to drastically reduce the matrix multiplication latency in the encrypted domain.
 
 \section{Conclusion}
 This project successfully demonstrates the implementation and benchmarking of a privacy-preserving image classification system. We conclude that while Homomorphic Encryption elegantly solves the trust and privacy issues inherent in cloud AI, its extreme computational overhead currently restricts its viability to offline, asynchronous batch-processing tasks where security strictly outweighs speed.
