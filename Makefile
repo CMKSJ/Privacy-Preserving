@@ -16,3 +16,9 @@ docker-he-batch:
 
 docker-compare:
 	docker run --rm -v $(PWD)/../..:/work -w $(CONTAINER_WORKDIR) $(IMAGE_NAME) python compare_diff.py
+
+docker-he-timing:
+	docker run --rm -v $(PWD)/../..:/work -w $(CONTAINER_WORKDIR) $(IMAGE_NAME) python he_encrypt_time.py
+
+docker-he-serialize:
+	docker run --rm -v $(PWD)/../..:/work -w $(CONTAINER_WORKDIR) $(IMAGE_NAME) python he_serialization.py

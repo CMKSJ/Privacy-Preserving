@@ -66,7 +66,7 @@
 \maketitle              % typeset the header of the contribution
 %
 \begin{abstract}
-The rapid adoption of AI-as-a-Service (AIaaS) introduces significant data privacy risks when transmitting sensitive user data to untrusted third-party cloud servers. Homomorphic Encryption (HE) offers a mathematically rigorous solution by allowing computations directly on encrypted data without decryption. In this application-based project, we evaluate the performance overhead and approximation errors of deploying HE in neural network inference. We adapt a standard image classification model into an HE-friendly shallow polynomial network and implement the CKKS encryption scheme using the TenSEAL library. Our evaluation on the MNIST dataset demonstrates that while HE successfully maintains 100\% classification accuracy with with a negligible approximation error of 0.03, it introduces severe performance bottlenecks, increasing the average inference latency from 0.50 milliseconds to 2.94 seconds per image. These results highlight the practical trade-offs between absolute data confidentiality and computational efficiency in modern privacy-preserving AI systems.
+The rapid adoption of AI-as-a-Service (AIaaS) introduces significant data privacy risks when transmitting sensitive user data to untrusted third-party cloud servers. Homomorphic Encryption (HE) offers a mathematically rigorous solution by allowing computations directly on encrypted data without decryption. In this application-based project, we evaluate the performance overhead and approximation errors of deploying HE in neural network inference. We adapt a standard image classification model into an HE-friendly shallow polynomial network and implement the CKKS encryption scheme using the TenSEAL library. Our evaluation on the MNIST dataset demonstrates that while HE successfully maintains 100\% classification accuracy with a negligible approximation error of 0.031, it introduces severe performance bottlenecks, increasing the average inference latency from 0.50 milliseconds to 2.94 seconds per image ($\approx$6,000$\times$ overhead). We further analyse the full end-to-end serialization pipeline and find that transmitting the public CKKS context alone requires 117 MB of bandwidth---a significant communication cost driven by the Galois key set. These results highlight the practical trade-offs between absolute data confidentiality and computational efficiency in modern privacy-preserving AI systems.
 
 \keywords{Homomorphic Encryption \and Privacy-Preserving AI \and Machine Learning \and TenSEAL \and CKKS.}
 \end{abstract}
@@ -91,6 +91,7 @@ To address the research question, we implemented a privacy-preserving pipeline a
     \item We designed an HE-friendly neural network by replacing non-linear activation functions (e.g., ReLU) with a second-order polynomial function ($x^2$), ensuring compatibility with homomorphic operations.
     \item We implemented an end-to-end secure inference system using the TenSEAL library, deploying the CKKS scheme to protect user data throughout the inference lifecycle.
     \item We performed a rigorous benchmarking on the MNIST dataset, quantifying the impact of HE on classification accuracy, floating-point approximation errors, and end-to-end latency.
+    \item We implemented and evaluated a full serialization-based client-server pipeline, measuring per-phase latency and data transmission costs including the 117 MB public context overhead.
 \end{itemize}
 
 \section{Background}
@@ -105,16 +106,28 @@ Our implementation separates the workflow into a Client environment and an untru
 Standard neural networks rely heavily on non-linear activation functions such as ReLU ($max(0, x)$). However, condition-based operations are prohibitively expensive or unsupported in HE. To solve this, we constructed a shallow neural network consisting of two fully connected layers ($784 \to 64 \to 10$) and utilized a \textbf{polynomial activation function} ($f(x) = x^2$). Since HE inherently supports homomorphic additions and multiplications, this squared activation perfectly integrates into the encrypted computation pipeline.
 
 \subsection{Cryptographic Parameter Selection}
-In the CKKS scheme, each multiplication operation consumes the scaling factor, requiring rescaling which subsequently consumes the polynomial modulus depth. To support our network's required 3-layer multiplicative depth without triggering a \texttt{scale out of bounds} error, we configured the TenSEAL context with robust cryptographic parameters:
+In the CKKS scheme, each multiplication operation consumes the scaling factor, requiring rescaling which subsequently consumes the polynomial modulus depth. To support our network's required 3-level multiplicative depth without triggering a \texttt{scale out of bounds} error, we configured the TenSEAL context with the following parameters:
 \begin{itemize}
-    \item \textbf{Polynomial Modulus Degree:} Increased to $16384$ to provide sufficient capacity for the prime number chain.
-    \item \textbf{Coefficient Modulus Bit Sizes:} Set to \texttt{[60, 40, 40, 40, 60]}, providing three intermediate 40-bit primes for the necessary multiplication operations.
+    \item \textbf{Polynomial Modulus Degree:} Set to $16384$ to provide sufficient capacity for the prime number chain.
+    \item \textbf{Coefficient Modulus Bit Sizes:} Set to \texttt{[60, 40, 40, 40, 60]}, providing exactly \textit{three} intermediate 40-bit primes that match our 3-step pipeline depth.
+    \item \textbf{Global Scale:} Set to $2^{40}$, matching the 40-bit intermediate primes to maximise numerical precision while avoiding overflow during rescaling.
+    \item \textbf{Galois Keys:} Generated to support ciphertext rotation, which is required internally during the \texttt{matmul} operation.
+    \item \textbf{Relinearization Keys:} Generated to reduce ciphertext size back to two components after each ciphertext-ciphertext multiplication (i.e., the \texttt{square} activation).
 \end{itemize}
+
+\subsection{Encrypted Inference Pipeline}
+The server-side inference consists of exactly three homomorphic operations that map to the two-layer network:
+\begin{enumerate}
+    \item \texttt{enc\_out1 = enc\_x.matmul(w1) + b1} --- Encrypted fully-connected layer 1, consuming one depth level; auto-rescaling is triggered to maintain scale alignment.
+    \item \texttt{enc\_sq = enc\_out1.square()} --- Polynomial activation $x^2$, consuming one depth level; followed by automatic relinearization and rescaling.
+    \item \texttt{enc\_out2 = enc\_sq.matmul(w2) + b2} --- Encrypted fully-connected layer 2, producing 10 encrypted logits and consuming the final depth level.
+\end{enumerate}
+This three-step structure precisely exhausts the three intermediate primes in \texttt{[60,\,40,\,40,\,40,\,60]}, leaving the ciphertext in a valid decryptable state with no wasted depth budget.
 
 \section{Experimental Evaluation}
 
 \subsection{Experimental Setup}
-The experiments were conducted using the MNIST handwritten digit dataset. We first trained the plaintext polynomial model using PyTorch, achieving a baseline accuracy. The inference weights were then extracted and applied to the TenSEAL encrypted operations. We ran a batch evaluation of 100 test images to compare the plaintext baseline against the HE inference.
+The experiments were conducted using the MNIST handwritten digit dataset (60,000 training / 10,000 test images, $28\times28$ grayscale). The polynomial network was trained with the Adam optimizer ($lr=0.001$, batch size 64) using cross-entropy loss for 3 epochs, yielding a model with 50,890 parameters. All experiments were executed in a reproducible Docker environment (\texttt{python:3.11-slim} with PyTorch 2.10.0 and TenSEAL built from source) on a CPU-only host. The inference weights were extracted and applied directly to the TenSEAL encrypted operations. We ran a batch evaluation of 100 test images to compare the plaintext baseline against the HE inference, and a separate serialization-based pipeline experiment to measure full end-to-end communication overhead.
 
 \subsection{Accuracy and Approximation Error}
 One of the most critical findings is that HE inference maintained a \textbf{100\% match} with the plaintext model's predictions. Because the CKKS scheme is an approximate computation method, it introduces noise to the floating-point values. As shown in Table \ref{tab:error}, the HE computed logits differ from the plaintext logits by an average absolute error of $0.0312$. 
@@ -144,7 +157,32 @@ However, since image classification relies on the \texttt{Argmax} function (the 
 As illustrated in Table \ref{tab:error}, the maximum absolute error across all classes remains within the range of $10^{-2}$. Specifically, for the target class `7', the ciphertext logit (24.858727) is slightly lower than the plaintext logit (24.877792), yet it significantly dominates all other potential classes. This experimental evidence confirms that the floating-point approximation noise inherent in the CKKS scheme does not compromise the classification integrity for shallow polynomial networks.
 
 \subsection{Performance Overhead Analysis}
-While accuracy was perfectly preserved, the computational cost was severe. In our batch evaluation, the plaintext inference required an average of \textbf{0.50 milliseconds} per image. In contrast, the HE inference required \textbf{2.94 seconds} per image --- an increase in latency by a factor of nearly 6000. This massive overhead is attributed to the complex polynomial mathematics of ciphertext matrix multiplications and the necessity of continuous \textit{relinearization} and \textit{rescaling} after each layer.
+While accuracy was perfectly preserved, the computational cost was severe. In our batch evaluation, the plaintext inference required an average of \textbf{0.50 ms} per image. In contrast, the HE inference required \textbf{2.94 seconds} per image --- an increase in latency by a factor of approximately \textbf{6,000$\times$}. This massive overhead is attributed to the complex polynomial arithmetic of ciphertext matrix multiplications and the necessity of continuous \textit{relinearization} and \textit{rescaling} after each layer.
+
+\subsection{Serialization and Communication Overhead}
+To simulate a realistic client-server deployment, we implemented a full serialization pipeline where the client and server exchange only serialized byte streams (no shared in-memory context). Table~\ref{tab:serial} summarises the end-to-end latency breakdown and the sizes of all exchanged objects for a single inference.
+
+\begin{table}[ht]
+\centering
+\caption{End-to-end latency and communication cost (single image, label = 7)}
+\label{tab:serial}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Phase} & \textbf{Time (s)} & \textbf{Data Size} \\ \midrule
+Client: key generation + encryption & 1.156 & --- \\
+\quad Public context (Galois + Relin keys) & --- & 117.0 MB \\
+\quad Input ciphertext (784-dim) & --- & 835.3 KB \\
+\midrule
+Server: deserialize + infer & 3.090 & --- \\
+\quad Encrypted result (10-dim) & --- & 256.1 KB \\
+\midrule
+Client: decryption & $<$0.001 & --- \\
+\midrule
+\textbf{Total end-to-end} & \textbf{4.247} & \textbf{$\approx$118 MB} \\ \bottomrule
+\end{tabular}
+\end{table}
+
+A notable finding is the disproportionate size of the public context ($\approx$117 MB), which dominates the communication cost. This is caused by the Galois key set, required to enable ciphertext rotation during the \texttt{matmul} operation. While the Galois keys only need to be transmitted once per session, their size represents a significant bandwidth requirement for low-latency applications. By contrast, the actual input and output ciphertexts are comparatively compact (835 KB and 256 KB respectively).
 
 \section{Discussion and Future Work}
 Our results validate that Homomorphic Encryption can provide absolute data privacy for AIaaS without compromising accuracy, provided the network is shallow. However, the $O(10^3)$ performance penalty makes current pure HE solutions impractical for real-time, latency-sensitive applications. Furthermore, because approximation errors accumulate multiplicatively, applying CKKS to very deep networks (e.g., ResNet) would eventually cause the noise to eclipse the actual data, breaking the \texttt{Argmax} outcome. 
