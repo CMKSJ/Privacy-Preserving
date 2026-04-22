@@ -66,7 +66,7 @@
 \maketitle              % typeset the header of the contribution
 %
 \begin{abstract}
-The rapid adoption of AI-as-a-Service (AIaaS) introduces significant data privacy risks when transmitting sensitive user data to untrusted third-party cloud servers. Homomorphic Encryption (HE) offers a mathematically rigorous solution by allowing computations directly on encrypted data without decryption. In this application-based project, we evaluate the performance overhead and approximation errors of deploying HE in neural network inference. We adapt a standard image classification model into an HE-friendly shallow polynomial network and implement the CKKS encryption scheme using the TenSEAL library. Our evaluation on the MNIST dataset demonstrates that while HE successfully maintains 100\% classification accuracy with a negligible approximation error of 0.031, it introduces severe performance bottlenecks, increasing the average inference latency from 0.50 milliseconds to 2.94 seconds per image ($\approx$6,000$\times$ overhead). We further analyse the full end-to-end serialization pipeline and find that transmitting the public CKKS context alone requires 117 MB of bandwidth---a significant communication cost driven by the Galois key set. These results highlight the practical trade-offs between absolute data confidentiality and computational efficiency in modern privacy-preserving AI systems.
+The rapid adoption of AI-as-a-Service (AIaaS) introduces significant data privacy risks when transmitting sensitive user data to untrusted third-party cloud servers. Homomorphic Encryption (HE) offers a mathematically rigorous solution by allowing computations directly on encrypted data without decryption. In this application-based project, we evaluate the performance overhead and approximation errors of deploying HE in neural network inference. We adapt a standard image classification model into an HE-friendly shallow polynomial network and implement the CKKS encryption scheme using the TenSEAL library. Our evaluation on the MNIST dataset demonstrates that while HE successfully maintains 100\% classification accuracy with a negligible approximation error of 0.0312, it introduces severe performance bottlenecks, increasing the average inference latency from 0.50 milliseconds to 2.94 seconds per image ($\approx$6,000$\times$ overhead). We further analyse the full end-to-end serialization pipeline and find that transmitting the public CKKS context alone requires 117 MB of bandwidth---a significant communication cost driven by the Galois key set. These results highlight the practical trade-offs between absolute data confidentiality and computational efficiency in modern privacy-preserving AI systems.
 
 \keywords{Homomorphic Encryption \and Privacy-Preserving AI \and Machine Learning \and TenSEAL \and CKKS.}
 \end{abstract}
@@ -76,7 +76,7 @@ The rapid adoption of AI-as-a-Service (AIaaS) introduces significant data privac
 \section{Introduction}
 
 \subsection{Motivation}
-The rapid proliferation of cloud computing and Artificial Intelligence-as-a-Service (AIaaS) has transformed how organizations deploy and consume machine learning models. In this paradigm, users transmit sensitive data---ranging from personal medical records to proprietary financial information---to third-party cloud servers for high-performance inference. However, this architecture introduces a critical privacy bottleneck: traditional encryption only protects data in transit and at rest. To be processed by an AI model, data must typically be decrypted, exposing the plaintext to potentially compromised cloud environments or `honest-but-curious' service providers. 
+The rapid proliferation of cloud computing and Artificial Intelligence-as-a-Service (AIaaS) has transformed how organizations deploy and consume machine learning models. In this paradigm, users transmit sensitive data---ranging from personal medical records to proprietary financial information---to third-party cloud servers for high-performance inference. However, this architecture introduces a critical privacy bottleneck: traditional encryption only protects data in transit and at rest. To be processed by an AI model, data must typically be decrypted, exposing the plaintext to potentially compromised cloud environments or `honest-but-curious' service providers.\cite{ref_course} 
 
 To bridge the gap between utility and confidentiality, there is an urgent need for techniques that enable computation directly on encrypted data. \textbf{Homomorphic Encryption (HE)} has emerged as a mathematically rigorous solution to this challenge, enabling `blind computation' where a server can perform mathematical operations on ciphertexts without ever accessing the underlying plaintext. Despite its theoretical promise, the practical adoption of HE is severely hindered by the massive computational overhead and latency it introduces compared to plaintext operations. Understanding these trade-offs is essential for designing viable privacy-preserving AI systems.
 
@@ -89,13 +89,13 @@ Specifically, we investigate whether a shallow neural network can maintain its p
 To address the research question, we implemented a privacy-preserving pipeline and performed a comprehensive evaluation:
 \begin{itemize}
     \item We designed an HE-friendly neural network by replacing non-linear activation functions (e.g., ReLU) with a second-order polynomial function ($x^2$), ensuring compatibility with homomorphic operations.
-    \item We implemented an end-to-end secure inference system using the TenSEAL library, deploying the CKKS scheme to protect user data throughout the inference lifecycle.
+    \item We implemented an end-to-end secure inference system using the TenSEAL library\cite{ref_tenseal}, deploying the CKKS (Cheon-Kim-Kim-Song) scheme\cite{ref_ckks} to protect user data throughout the inference lifecycle.
     \item We performed a rigorous benchmarking on the MNIST dataset, quantifying the impact of HE on classification accuracy, floating-point approximation errors, and end-to-end latency.
     \item We implemented and evaluated a full serialization-based client-server pipeline, measuring per-phase latency and data transmission costs including the 117 MB public context overhead.
 \end{itemize}
 
 \section{Background}
-Homomorphic Encryption (HE) is a cryptographic scheme that allows arbitrary mathematical operations to be performed on ciphertexts. When the resulting ciphertext is decrypted, it yields the exact result of the operations as if they had been performed on the plaintext. In this project, we utilize the \textbf{CKKS (Cheon-Kim-Kim-Song)} scheme, which is specifically designed to support approximate arithmetic over arrays of complex and real numbers, making it uniquely suitable for neural network floating-point operations.
+Homomorphic Encryption (HE) is a cryptographic scheme that allows arbitrary mathematical operations to be performed on ciphertexts. When the resulting ciphertext is decrypted, it yields the exact result of the operations as if they had been performed on the plaintext. In this project, we utilize the CKKS scheme, which is specifically designed to support approximate arithmetic over arrays of complex and real numbers, making it uniquely suitable for neural network floating-point operations.
 
 \section{Methodology and System Design}
 
@@ -182,7 +182,7 @@ Client: decryption & $<$0.001 & --- \\
 \end{tabular}
 \end{table}
 
-A notable finding is the disproportionate size of the public context ($\approx$117 MB), which dominates the communication cost. This is caused by the Galois key set, required to enable ciphertext rotation during the \texttt{matmul} operation. While the Galois keys only need to be transmitted once per session, their size represents a significant bandwidth requirement for low-latency applications. By contrast, the actual input and output ciphertexts are comparatively compact (835 KB and 256 KB respectively).
+A notable finding is the disproportionate size of the public context (approximately 117 MB), which dominates the communication cost. This is caused by the Galois key set, required to enable ciphertext rotation during the \texttt{matmul} operation. While the Galois keys only need to be transmitted once per session, their size represents a significant bandwidth requirement for low-latency applications. By contrast, the actual input and output ciphertexts are comparatively compact (835 KB and 256 KB respectively).
 
 \section{Discussion and Future Work}
 Our results validate that Homomorphic Encryption can provide absolute data privacy for AIaaS without compromising accuracy, provided the network is shallow. However, the $O(10^3)$ performance penalty makes current pure HE solutions impractical for real-time, latency-sensitive applications. Furthermore, because approximation errors accumulate multiplicatively, applying CKKS to very deep networks (e.g., ResNet) would eventually cause the noise to eclipse the actual data, breaking the \texttt{Argmax} outcome. 
@@ -198,11 +198,11 @@ This project successfully demonstrates the implementation and benchmarking of a 
 \bibitem{ref_course}
 Fauzi, P., Zhang, J.: Privacy-Preserving Technologies \& Security in AI. Nanyang Technological University Course Material (2026).
 
-\bibitem{ref_ckks}
-Cheon, J.H., Kim, A., Kim, M., Song, Y.: Homomorphic Encryption for Arithmetic of Approximate Numbers. Advances in Cryptology - ASIACRYPT 2017, pp. 409--437. Springer (2017).
-
 \bibitem{ref_tenseal}
 Benaissa, A., et al.: TenSEAL: A library for doing homomorphic encryption operations on tensors. \url{https://github.com/OpenMined/TenSEAL}.
+
+\bibitem{ref_ckks}
+Cheon, J.H., Kim, A., Kim, M., Song, Y.: Homomorphic Encryption for Arithmetic of Approximate Numbers. Advances in Cryptology - ASIACRYPT 2017, pp. 409--437. Springer (2017).
 
 \end{thebibliography}
 
